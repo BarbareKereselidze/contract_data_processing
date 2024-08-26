@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 import json
 
 from utils.calculate_features import CalculateFeatures
@@ -12,10 +11,16 @@ class CreateFeatureDF:
 
     Attributes:
         df: original dataframe containing contract data and application dates.
+        total_claims: assigning default value to tot_claim_cnt_l180d feature, will get overwritten if necessary.
+        loan_sum: assigning default value to disb_bank_loan_wo_tbc feature, will get overwritten if necessary.
+        loan_interval: assigning default value to day_sinlastloan feature, will get overwritten if necessary.
     """
 
     def __init__(self, df):
         self.df = df
+        self.total_claims = -3
+        self.loan_sum = -3
+        self.loan_interval = -3
 
     @staticmethod
     def _parse_contracts(contracts: str) -> list[dict]:
@@ -48,25 +53,19 @@ class CreateFeatureDF:
         pd.set_option('future.no_silent_downcasting', True)
         features_list = []
 
-        # giving features default values in case of no contracts
-        total_claims, loan_sum, loan_interval = -3, -1, -1
-
         for _, row in self.df.iterrows():
             contract_data = self._parse_contracts(row['contracts'])
             contract_df = pd.DataFrame(contract_data)
 
-            # changing empty values being '' to pandas Nan
-            contract_df.replace('', np.nan, inplace=True)
-
             if not contract_df.empty:
                 feature_calculator = CalculateFeatures(contract_df, row['application_date'])
-                total_claims, loan_sum, loan_interval = feature_calculator.get_features()
+                self.total_claims, self.loan_sum, self.loan_interval = feature_calculator.get_features()
 
             features_list.append({
                 'id': row['id'],
-                'tot_claim_cnt_l180d': total_claims,
-                'disb_bank_loan_wo_tbc': loan_sum,
-                'day_sinlastloan': loan_interval
+                'tot_claim_cnt_l180d': self.total_claims,
+                'disb_bank_loan_wo_tbc': self.loan_sum,
+                'day_sinlastloan': self.loan_interval
             })
 
         features_df = pd.DataFrame(features_list)
